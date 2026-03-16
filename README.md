@@ -1,26 +1,16 @@
 <div align="center">
-
-  ### ⚠️ This project is no longer maintained
-  See https://github.com/containrrr/watchtower/discussions/2135 for details.
-
-  ---
-  
   <img src="./logo.png" width="450" />
   
   # Watchtower
   
-  A process for automating Docker container base image updates.
+  A fork of Watchtower with minimal, targeted maintenance updates for self-hosted use.
   <br/><br/>
   
-  [![Circle CI](https://circleci.com/gh/containrrr/watchtower.svg?style=shield)](https://circleci.com/gh/containrrr/watchtower)
-  [![codecov](https://codecov.io/gh/containrrr/watchtower/branch/main/graph/badge.svg)](https://codecov.io/gh/containrrr/watchtower)
-  [![GoDoc](https://godoc.org/github.com/containrrr/watchtower?status.svg)](https://godoc.org/github.com/containrrr/watchtower)
-  [![Go Report Card](https://goreportcard.com/badge/github.com/containrrr/watchtower)](https://goreportcard.com/report/github.com/containrrr/watchtower)
-  [![latest version](https://img.shields.io/github/tag/containrrr/watchtower.svg)](https://github.com/containrrr/watchtower/releases)
-  [![Apache-2.0 License](https://img.shields.io/github/license/containrrr/watchtower.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-  [![Codacy Badge](https://app.codacy.com/project/badge/Grade/1c48cfb7646d4009aa8c6f71287670b8)](https://www.codacy.com/gh/containrrr/watchtower/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=containrrr/watchtower&amp;utm_campaign=Badge_Grade)
-  [![All Contributors](https://img.shields.io/github/all-contributors/containrrr/watchtower)](#contributors)
-  [![Pulls from DockerHub](https://img.shields.io/docker/pulls/containrrr/watchtower.svg)](https://hub.docker.com/r/containrrr/watchtower)
+  [![Pull Request](https://github.com/Bald1nh0/watchtower/actions/workflows/pull-request.yml/badge.svg)](https://github.com/Bald1nh0/watchtower/actions/workflows/pull-request.yml)
+  [![Release](https://github.com/Bald1nh0/watchtower/actions/workflows/release.yml/badge.svg)](https://github.com/Bald1nh0/watchtower/actions/workflows/release.yml)
+  [![Docs](https://github.com/Bald1nh0/watchtower/actions/workflows/publish-docs.yml/badge.svg)](https://github.com/Bald1nh0/watchtower/actions/workflows/publish-docs.yml)
+  [![Latest version](https://img.shields.io/github/v/tag/Bald1nh0/watchtower?label=release)](https://github.com/Bald1nh0/watchtower/releases)
+  [![Apache-2.0 License](https://img.shields.io/github/license/Bald1nh0/watchtower.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
 </div>
 
@@ -34,13 +24,22 @@ Watchtower will pull down your new image, gracefully shut down your existing con
 $ docker run --detach \
     --name watchtower \
     --volume /var/run/docker.sock:/var/run/docker.sock \
-    containrrr/watchtower
+    ghcr.io/bald1nh0/watchtower:latest
 ```
 
 Watchtower is intended to be used in homelabs, media centers, local dev environments, and similar. We do **not** recommend using Watchtower in a commercial or production environment. If that is you, you should be looking into using Kubernetes. If that feels like too big a step for you, please look into solutions like [MicroK8s](https://microk8s.io/) and [k3s](https://k3s.io/) that take away a lot of the toil of running a Kubernetes cluster. 
 
 ## Documentation
-The full documentation is available at https://containrrr.dev/watchtower.
+The full documentation is available at https://bald1nh0.github.io/watchtower/.
+
+## CI/CD
+
+This fork ships GitHub Actions configured for self-hosted Linux runners by default.
+
+- The default runner labels are `["self-hosted","linux","x64"]`.
+- Override runner labels with the repository variable `RUNNER_LABELS_JSON`.
+- Images are published to `ghcr.io/bald1nh0/watchtower`.
+- Documentation is published to GitHub Pages from this repository.
 
 ## Contributors
 

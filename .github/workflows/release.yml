@@ -1,25 +1,30 @@
 name: Release (Production)
 
 on:
-  workflow_dispatch: {}
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
-      - '**/v[0-9]+.[0-9]+.[0-9]+'
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  GO_VERSION: '1.20.x'
 
 jobs:
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.RUNNER_LABELS_JSON != '' && vars.RUNNER_LABELS_JSON || '["self-hosted","linux","x64"]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.20.x
+          go-version: ${{ env.GO_VERSION }}
       - uses: dominikh/staticcheck-action@ba605356b4b29a60e87ab9404b712f3461e566dc #v1.3.0
         with:
           version: "2022.1.1"
@@ -27,32 +32,24 @@ jobs:
 
   test:
     name: Test
-    strategy:
-      matrix:
-        go-version:
-          - 1.20.x
-        platform:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ fromJSON(vars.RUNNER_LABELS_JSON != '' && vars.RUNNER_LABELS_JSON || '["self-hosted","linux","x64"]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.20.x
+          go-version: ${{ env.GO_VERSION }}
       - name: Run tests
         run: |
           go test ./... -coverprofile coverage.out
 
   build:
     name: Build
-    runs-on: ubuntu-latest
-    needs: 
+    runs-on: ${{ fromJSON(vars.RUNNER_LABELS_JSON != '' && vars.RUNNER_LABELS_JSON || '["self-hosted","linux","x64"]') }}
+    needs:
       - test
       - lint
     env:
@@ -64,19 +61,27 @@ jobs:
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.20.x
-      - name: Login to Docker Hub
-        uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc #v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          go-version: ${{ env.GO_VERSION }}
+      - name: Resolve image name
+        run: |
+          if [ -n "${GHCR_IMAGE_OVERRIDE}" ]; then
+            echo "GHCR_IMAGE=${GHCR_IMAGE_OVERRIDE}" >> "$GITHUB_ENV"
+          else
+            echo "GHCR_IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+          fi
+        env:
+          GHCR_IMAGE_OVERRIDE: ${{ vars.GHCR_IMAGE }}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       - name: Login to GHCR
-        uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc #v2
+        uses: docker/login-action@v3
         with:
-          username: ${{ secrets.BOT_USERNAME }}
-          password: ${{ secrets.BOT_GHCR_PAT }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
           registry: ghcr.io
       - name: Build
         uses: goreleaser/goreleaser-action@7ec5c2b0c6cdda6e8bbb49444bc797dd33d74dd8 #v3
@@ -87,111 +92,64 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Enable experimental docker features
         run: |
-          mkdir -p ~/.docker/ && \
+          mkdir -p ~/.docker/
           echo '{"experimental": "enabled"}' > ~/.docker/config.json
       - name: Create manifest for version
         run: |
-          export DH_TAG=$(git tag --points-at HEAD | sed 's/^v*//')
+          IMAGE_TAG="$(echo "$TAG" | sed 's#^.*/##' | sed 's/^v*//')"
           docker manifest create \
-            containrrr/watchtower:$DH_TAG \
-            containrrr/watchtower:amd64-$DH_TAG \
-            containrrr/watchtower:i386-$DH_TAG \
-            containrrr/watchtower:armhf-$DH_TAG \
-            containrrr/watchtower:arm64v8-$DH_TAG
-          docker manifest create \
-            ghcr.io/containrrr/watchtower:$DH_TAG \
-            ghcr.io/containrrr/watchtower:amd64-$DH_TAG \
-            ghcr.io/containrrr/watchtower:i386-$DH_TAG \
-            ghcr.io/containrrr/watchtower:armhf-$DH_TAG \
-            ghcr.io/containrrr/watchtower:arm64v8-$DH_TAG
+            "${GHCR_IMAGE}:${IMAGE_TAG}" \
+            "${GHCR_IMAGE}:amd64-${IMAGE_TAG}" \
+            "${GHCR_IMAGE}:i386-${IMAGE_TAG}" \
+            "${GHCR_IMAGE}:armhf-${IMAGE_TAG}" \
+            "${GHCR_IMAGE}:arm64v8-${IMAGE_TAG}"
       - name: Annotate manifest for version
         run: |
-          for REPO in '' ghcr.io/ ; do
-          
+          IMAGE_TAG="$(echo "$TAG" | sed 's#^.*/##' | sed 's/^v*//')"
           docker manifest annotate \
-            ${REPO}containrrr/watchtower:$(echo $TAG | sed 's/^v*//') \
-            ${REPO}containrrr/watchtower:i386-$(echo $TAG | sed 's/^v*//') \
+            "${GHCR_IMAGE}:${IMAGE_TAG}" \
+            "${GHCR_IMAGE}:i386-${IMAGE_TAG}" \
             --os linux \
             --arch 386
-          
           docker manifest annotate \
-            ${REPO}containrrr/watchtower:$(echo $TAG | sed 's/^v*//') \
-            ${REPO}containrrr/watchtower:armhf-$(echo $TAG | sed 's/^v*//') \
+            "${GHCR_IMAGE}:${IMAGE_TAG}" \
+            "${GHCR_IMAGE}:armhf-${IMAGE_TAG}" \
             --os linux \
             --arch arm
-      
           docker manifest annotate \
-            ${REPO}containrrr/watchtower:$(echo $TAG | sed 's/^v*//') \
-            ${REPO}containrrr/watchtower:arm64v8-$(echo $TAG | sed 's/^v*//') \
+            "${GHCR_IMAGE}:${IMAGE_TAG}" \
+            "${GHCR_IMAGE}:arm64v8-${IMAGE_TAG}" \
             --os linux \
             --arch arm64 \
             --variant v8
-            
-            done
       - name: Create manifest for latest
         run: |
           docker manifest create \
-            containrrr/watchtower:latest \
-            containrrr/watchtower:amd64-latest \
-            containrrr/watchtower:i386-latest \
-            containrrr/watchtower:armhf-latest \
-            containrrr/watchtower:arm64v8-latest
-          docker manifest create \
-            ghcr.io/containrrr/watchtower:latest \
-            ghcr.io/containrrr/watchtower:amd64-latest \
-            ghcr.io/containrrr/watchtower:i386-latest \
-            ghcr.io/containrrr/watchtower:armhf-latest \
-            ghcr.io/containrrr/watchtower:arm64v8-latest
+            "${GHCR_IMAGE}:latest" \
+            "${GHCR_IMAGE}:amd64-latest" \
+            "${GHCR_IMAGE}:i386-latest" \
+            "${GHCR_IMAGE}:armhf-latest" \
+            "${GHCR_IMAGE}:arm64v8-latest"
       - name: Annotate manifest for latest
         run: |
-          for REPO in '' ghcr.io/ ; do
-
           docker manifest annotate \
-            ${REPO}containrrr/watchtower:latest \
-            ${REPO}containrrr/watchtower:i386-latest \
+            "${GHCR_IMAGE}:latest" \
+            "${GHCR_IMAGE}:i386-latest" \
             --os linux \
             --arch 386
-      
           docker manifest annotate \
-            ${REPO}containrrr/watchtower:latest \
-            ${REPO}containrrr/watchtower:armhf-latest \
+            "${GHCR_IMAGE}:latest" \
+            "${GHCR_IMAGE}:armhf-latest" \
             --os linux \
             --arch arm
-            
           docker manifest annotate \
-            ${REPO}containrrr/watchtower:latest \
-            ${REPO}containrrr/watchtower:arm64v8-latest \
+            "${GHCR_IMAGE}:latest" \
+            "${GHCR_IMAGE}:arm64v8-latest" \
             --os linux \
             --arch arm64 \
             --variant v8
-
-          done
-      - name: Push manifests to Dockerhub
-        env:
-          DOCKER_USER: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKER_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Push manifests to GHCR
         run: |
-          docker login -u $DOCKER_USER -p $DOCKER_TOKEN && \
-            docker manifest push containrrr/watchtower:$(echo $TAG | sed 's/^v*//') && \
-            docker manifest push containrrr/watchtower:latest
-      - name: Push manifests to GitHub Container Registry
-        env:
-          DOCKER_USER: ${{ secrets.BOT_USERNAME }}
-          DOCKER_TOKEN: ${{ secrets.BOT_GHCR_PAT }}
-        run: |
-          docker login -u $DOCKER_USER -p $DOCKER_TOKEN ghcr.io && \
-            docker manifest push ghcr.io/containrrr/watchtower:$(echo $TAG | sed 's/^v*//') && \
-            docker manifest push ghcr.io/containrrr/watchtower:latest
-
-  renew-docs:
-    name: Refresh pkg.go.dev
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-    - name: Pull new module version
-      uses: andrewslotin/go-proxy-pull-action@50fea06a976087614babb9508e5c528b464f4645 #master@2022-10-14
-
-  
-  
-
-  
+          IMAGE_TAG="$(echo "$TAG" | sed 's#^.*/##' | sed 's/^v*//')"
+          docker manifest push "${GHCR_IMAGE}:${IMAGE_TAG}"
+          docker manifest push "${GHCR_IMAGE}:latest"
