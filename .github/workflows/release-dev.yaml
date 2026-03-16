@@ -14,6 +14,9 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   GO_VERSION: '1.26.1'
   CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+  IMAGE_DESCRIPTION: 'A process for automating Docker container base image updates.'
+  IMAGE_SOURCE: 'https://github.com/Bald1nh0/watchtower'
+  IMAGE_URL: 'https://bald1nh0.github.io/watchtower/'
 
 jobs:
   build:
@@ -81,3 +84,15 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.GHCR_IMAGE }}:latest-dev
+          labels: |
+            org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.source=${{ env.IMAGE_SOURCE }}
+            org.opencontainers.image.title=watchtower
+            org.opencontainers.image.url=${{ env.IMAGE_URL }}
+          annotations: |
+            index:org.opencontainers.image.description=${{ env.IMAGE_DESCRIPTION }}
+            index:org.opencontainers.image.licenses=Apache-2.0
+            index:org.opencontainers.image.source=${{ env.IMAGE_SOURCE }}
+            index:org.opencontainers.image.title=watchtower
+            index:org.opencontainers.image.url=${{ env.IMAGE_URL }}

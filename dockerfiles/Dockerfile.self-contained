@@ -2,10 +2,11 @@
 # Builder
 #
 
-FROM golang:alpine AS builder
+FROM golang:1.26.1-alpine AS builder
 
 # use version (for example "v0.3.3") or "main"
 ARG WATCHTOWER_VERSION=main
+ARG WATCHTOWER_REPOSITORY=https://github.com/Bald1nh0/watchtower.git
 
 RUN apk add --no-cache \
     alpine-sdk \
@@ -13,7 +14,7 @@ RUN apk add --no-cache \
     git \
     tzdata
 
-RUN git clone --branch "${WATCHTOWER_VERSION}" https://github.com/containrrr/watchtower.git
+RUN git clone --branch "${WATCHTOWER_VERSION}" "${WATCHTOWER_REPOSITORY}"
 
 RUN \
   cd watchtower && \
@@ -29,6 +30,11 @@ RUN \
 FROM scratch
 
 LABEL "com.centurylinklabs.watchtower"="true"
+LABEL org.opencontainers.image.description="A process for automating Docker container base image updates."
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.source="https://github.com/Bald1nh0/watchtower"
+LABEL org.opencontainers.image.title="watchtower"
+LABEL org.opencontainers.image.url="https://bald1nh0.github.io/watchtower/"
 
 # copy files from other container
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt

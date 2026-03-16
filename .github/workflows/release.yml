@@ -12,6 +12,9 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   GO_VERSION: '1.26.1'
+  IMAGE_DESCRIPTION: 'A process for automating Docker container base image updates.'
+  IMAGE_SOURCE: 'https://github.com/Bald1nh0/watchtower'
+  IMAGE_URL: 'https://bald1nh0.github.io/watchtower/'
 
 jobs:
   lint:
@@ -94,66 +97,30 @@ jobs:
           args: --debug
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Enable experimental docker features
-        run: |
-          mkdir -p ~/.docker/
-          echo '{"experimental": "enabled"}' > ~/.docker/config.json
-      - name: Create manifest for version
+      - name: Create annotated manifest for version
         run: |
           IMAGE_TAG="$(echo "$TAG" | sed 's#^.*/##' | sed 's/^v*//')"
-          docker manifest create \
-            "${GHCR_IMAGE}:${IMAGE_TAG}" \
+          docker buildx imagetools create \
+            --annotation "index:org.opencontainers.image.description=${IMAGE_DESCRIPTION}" \
+            --annotation "index:org.opencontainers.image.licenses=Apache-2.0" \
+            --annotation "index:org.opencontainers.image.source=${IMAGE_SOURCE}" \
+            --annotation "index:org.opencontainers.image.title=watchtower" \
+            --annotation "index:org.opencontainers.image.url=${IMAGE_URL}" \
+            --tag "${GHCR_IMAGE}:${IMAGE_TAG}" \
             "${GHCR_IMAGE}:amd64-${IMAGE_TAG}" \
             "${GHCR_IMAGE}:i386-${IMAGE_TAG}" \
             "${GHCR_IMAGE}:armhf-${IMAGE_TAG}" \
             "${GHCR_IMAGE}:arm64v8-${IMAGE_TAG}"
-      - name: Annotate manifest for version
+      - name: Create annotated manifest for latest
         run: |
-          IMAGE_TAG="$(echo "$TAG" | sed 's#^.*/##' | sed 's/^v*//')"
-          docker manifest annotate \
-            "${GHCR_IMAGE}:${IMAGE_TAG}" \
-            "${GHCR_IMAGE}:i386-${IMAGE_TAG}" \
-            --os linux \
-            --arch 386
-          docker manifest annotate \
-            "${GHCR_IMAGE}:${IMAGE_TAG}" \
-            "${GHCR_IMAGE}:armhf-${IMAGE_TAG}" \
-            --os linux \
-            --arch arm
-          docker manifest annotate \
-            "${GHCR_IMAGE}:${IMAGE_TAG}" \
-            "${GHCR_IMAGE}:arm64v8-${IMAGE_TAG}" \
-            --os linux \
-            --arch arm64 \
-            --variant v8
-      - name: Create manifest for latest
-        run: |
-          docker manifest create \
-            "${GHCR_IMAGE}:latest" \
+          docker buildx imagetools create \
+            --annotation "index:org.opencontainers.image.description=${IMAGE_DESCRIPTION}" \
+            --annotation "index:org.opencontainers.image.licenses=Apache-2.0" \
+            --annotation "index:org.opencontainers.image.source=${IMAGE_SOURCE}" \
+            --annotation "index:org.opencontainers.image.title=watchtower" \
+            --annotation "index:org.opencontainers.image.url=${IMAGE_URL}" \
+            --tag "${GHCR_IMAGE}:latest" \
             "${GHCR_IMAGE}:amd64-latest" \
             "${GHCR_IMAGE}:i386-latest" \
             "${GHCR_IMAGE}:armhf-latest" \
             "${GHCR_IMAGE}:arm64v8-latest"
-      - name: Annotate manifest for latest
-        run: |
-          docker manifest annotate \
-            "${GHCR_IMAGE}:latest" \
-            "${GHCR_IMAGE}:i386-latest" \
-            --os linux \
-            --arch 386
-          docker manifest annotate \
-            "${GHCR_IMAGE}:latest" \
-            "${GHCR_IMAGE}:armhf-latest" \
-            --os linux \
-            --arch arm
-          docker manifest annotate \
-            "${GHCR_IMAGE}:latest" \
-            "${GHCR_IMAGE}:arm64v8-latest" \
-            --os linux \
-            --arch arm64 \
-            --variant v8
-      - name: Push manifests to GHCR
-        run: |
-          IMAGE_TAG="$(echo "$TAG" | sed 's#^.*/##' | sed 's/^v*//')"
-          docker manifest push "${GHCR_IMAGE}:${IMAGE_TAG}"
-          docker manifest push "${GHCR_IMAGE}:latest"

@@ -1,6 +1,8 @@
 module github.com/containrrr/watchtower
 
-go 1.20
+go 1.26.0
+
+toolchain go1.26.1
 
 require (
 	github.com/containrrr/shoutrrr v0.8.0
