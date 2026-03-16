@@ -10,7 +10,8 @@ permissions:
   packages: write
 
 env:
-  GO_VERSION: '1.20.x'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  GO_VERSION: '1.26.1'
 
 jobs:
   lint:
@@ -18,30 +19,32 @@ jobs:
     runs-on: ${{ fromJSON(vars.RUNNER_LABELS_JSON != '' && vars.RUNNER_LABELS_JSON || '["self-hosted","linux","x64"]') }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
-      - uses: dominikh/staticcheck-action@ba605356b4b29a60e87ab9404b712f3461e566dc #v1.3.0
-        with:
-          version: "2022.1.1"
-          install-go: "false" # StaticCheck uses go v1.17 which does not support `any`
+          cache: false
+      - name: Install staticcheck
+        run: 'go install honnef.co/go/tools/cmd/staticcheck@latest'
+      - name: Run staticcheck
+        run: '"$(go env GOPATH)/bin/staticcheck" ./...'
 
   test:
     name: Test
     runs-on: ${{ fromJSON(vars.RUNNER_LABELS_JSON != '' && vars.RUNNER_LABELS_JSON || '["self-hosted","linux","x64"]') }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: false
       - name: Run tests
         run: |
           go test ./... -coverprofile coverage.out
@@ -57,13 +60,14 @@ jobs:
       TAG: ${{ github.ref_name }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: false
       - name: Resolve image name
         run: |
           if [ -n "${GHCR_IMAGE_OVERRIDE}" ]; then
@@ -74,9 +78,9 @@ jobs:
         env:
           GHCR_IMAGE_OVERRIDE: ${{ vars.GHCR_IMAGE }}
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
