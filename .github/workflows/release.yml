@@ -34,6 +34,7 @@ env:
   IMAGE_SOURCE: 'https://github.com/Bald1nh0/watchtower'
   IMAGE_URL: 'https://bald1nh0.github.io/watchtower/'
   INITIAL_RELEASE_TAG: ${{ vars.INITIAL_RELEASE_TAG != '' && vars.INITIAL_RELEASE_TAG || 'v1.7.1' }}
+  INITIAL_RELEASE_REF: ${{ vars.INITIAL_RELEASE_REF != '' && vars.INITIAL_RELEASE_REF || 'a047c7f9ff11813f930f6998863fa1b8a015985c' }}
 
 jobs:
   prepare:
@@ -70,6 +71,7 @@ jobs:
           GITHUB_REF_TYPE: ${{ github.ref_type }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
           INITIAL_RELEASE_TAG: ${{ env.INITIAL_RELEASE_TAG }}
+          INITIAL_RELEASE_REF: ${{ env.INITIAL_RELEASE_REF }}
         run: bash scripts/prepare-release.sh
       - name: Notify Telegram about queued release
         if: ${{ steps.prepare.outputs.should_release == 'true' && env.TELEGRAM_TOKEN != '' && env.TELEGRAM_CHAT_ID != '' }}

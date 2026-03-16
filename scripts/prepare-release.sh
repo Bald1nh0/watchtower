@@ -133,8 +133,10 @@ main() {
   local custom_tag="${CUSTOM_TAG:-}"
   local dry_run="${RELEASE_DRY_RUN:-false}"
   local initial_release_tag="${INITIAL_RELEASE_TAG:-}"
+  local initial_release_ref="${INITIAL_RELEASE_REF:-}"
   local current_latest_tag=""
   local base_release_tag=""
+  local history_base_ref=""
   local previous_tag=""
   local release_tag=""
   local release_ref=""
@@ -152,6 +154,15 @@ main() {
     base_release_tag="$initial_release_tag"
   fi
 
+  if [[ -z "$current_latest_tag" ]] && [[ -n "$initial_release_ref" ]]; then
+    if ! git rev-parse -q --verify "${initial_release_ref}^{commit}" >/dev/null; then
+      fail "Initial release ref '$initial_release_ref' was not found in the repository history."
+    fi
+    history_base_ref="$initial_release_ref"
+  else
+    history_base_ref="$current_latest_tag"
+  fi
+
   if [[ "$ref_type" == "tag" ]]; then
     if ! valid_tag "$ref_name"; then
       fail "Tag '$ref_name' does not match the expected v<major>.<minor>.<patch> format."
@@ -163,8 +174,8 @@ main() {
     return
   fi
 
-  if [[ -n "$current_latest_tag" ]] && [[ "$(git rev-list --count "${current_latest_tag}..HEAD")" -eq 0 ]] && [[ -z "$custom_tag" ]]; then
-    emit_release_outputs "false" "" "" "" "$current_latest_tag" "" "no_changes" "false"
+  if [[ -n "$history_base_ref" ]] && [[ "$(git rev-list --count "${history_base_ref}..HEAD")" -eq 0 ]] && [[ -z "$custom_tag" ]]; then
+    emit_release_outputs "false" "" "" "" "$base_release_tag" "" "no_changes" "false"
     return
   fi
 
@@ -177,7 +188,7 @@ main() {
     release_reason="workflow_dispatch"
   else
     if [[ "$release_bump" == "auto" ]]; then
-      release_type="$(detect_release_type "$current_latest_tag" HEAD)"
+      release_type="$(detect_release_type "$history_base_ref" HEAD)"
     else
       release_type="$release_bump"
     fi
@@ -190,9 +201,9 @@ main() {
     fail "Tag '${release_tag}' already exists."
   fi
 
-  if [[ -n "$current_latest_tag" ]]; then
-    changelog="$(generate_changelog "$current_latest_tag" HEAD)"
-    previous_tag="$current_latest_tag"
+  if [[ -n "$history_base_ref" ]]; then
+    changelog="$(generate_changelog "$history_base_ref" HEAD)"
+    previous_tag="$base_release_tag"
   else
     changelog="$(git log --no-merges --pretty=format:'- %s (%h)' -n 30 HEAD)"
     previous_tag="$base_release_tag"
