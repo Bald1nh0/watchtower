@@ -7,21 +7,27 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   GO_VERSION: '1.26.1'
 
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
-  publish-docs:
-    name: Publish Docs
+  build:
+    name: Build Docs
     runs-on: ${{ fromJSON(vars.RUNNER_LABELS_JSON != '' && vars.RUNNER_LABELS_JSON || '["self-hosted","linux","x64"]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
@@ -39,5 +45,24 @@ jobs:
       - name: Install mkdocs
         run: |
           pip install -r docs-requirements.txt
-      - name: Generate docs
-        run: mkdocs gh-deploy --strict
+      - name: Build docs
+        run: mkdocs build --strict --site-dir ./_site
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ./_site
+
+  deploy:
+    name: Deploy Docs
+    runs-on: ${{ fromJSON(vars.RUNNER_LABELS_JSON != '' && vars.RUNNER_LABELS_JSON || '["self-hosted","linux","x64"]') }}
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

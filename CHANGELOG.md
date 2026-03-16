@@ -11,3 +11,5 @@
 - Fixed Dockerfile linting for the self-contained image build.
 - Updated CI workflows to use Go `1.26.1` while keeping the module `go` directive unchanged.
 - Replaced the pinned Staticcheck GitHub Action with a direct `go install` based lint step for better compatibility with newer Go toolchains.
+- Fixed the `latest-dev` image workflow to build from this fork and publish a multi-arch image for `linux/amd64` and `linux/arm64`.
+- Reworked the documentation workflow to use the official GitHub Pages build-and-deploy flow with `configure-pages`, `upload-pages-artifact`, and `deploy-pages`.
